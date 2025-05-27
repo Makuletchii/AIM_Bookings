@@ -899,13 +899,13 @@ const getFilteredEndTimes = () => {
               <div className="flex items-center">
                 <input
                   type="checkbox"
-                  id="needsMealRoom"
-                  name="needsMealRoom"
-                  checked={formData.needsMealRoom}
+                  id="isMealRoom"
+                  name="isMealRoom"
+                  checked={formData.isMealRoom}
                   onChange={handleChange}
                   className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                 />
-                <label htmlFor="needsMealRoom" className="ml-2 text-gray-700 font-medium">
+                <label htmlFor="isMealRoom" className="ml-2 text-gray-700 font-medium">
                   Request a Meal Room
                 </label>
               </div>
@@ -913,19 +913,19 @@ const getFilteredEndTimes = () => {
                 <div className="flex items-center justify-center mb-2">
                   <input
                     type="checkbox"
-                    id="needsBreakoutRoom"
-                    name="needsBreakoutRoom"
-                    checked={formData.needsBreakoutRoom}
+                    id="isBreakRoom"
+                    name="isBreakRoom"
+                    checked={formData.isBreakRoom}
                     onChange={handleChange}
                     className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                   />
-                  <label htmlFor="needsBreakoutRoom" className="ml-2 text-gray-700 font-medium">
+                  <label htmlFor="isBreakRoom" className="ml-2 text-gray-700 font-medium">
                     Request a Breakout Room
                   </label>
               </div>
             </div>
 
-            {formData.needsBreakoutRoom && (
+            {formData.isBreakRoom && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 mt-4">
                 {/* Number of Pax for Breakout Room */}
                 <div className="md:col-span-2">
@@ -940,7 +940,7 @@ const getFilteredEndTimes = () => {
                     min={1}
                     className="w-full p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Enter number of participants for breakout room"
-                    required={formData.needsBreakoutRoom}
+                    required={formData.isBreakRoom}
                   />
                 </div>
                 {/* Start Time for Breakout Room */}
@@ -953,7 +953,7 @@ const getFilteredEndTimes = () => {
                     value={formData.startTimeBreakRoom || ''}
                     onChange={handleChange}
                     className="w-full p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required={formData.needsBreakoutRoom}
+                    required={formData.isBreakRoom}
                   >
                     <option value="">Select Start Time</option>
                     {TIME_OPTIONS.map((time) => (
@@ -971,7 +971,7 @@ const getFilteredEndTimes = () => {
                     value={formData.endTimeBreakRoom || ''}
                     onChange={handleChange}
                     className="w-full p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required={formData.needsBreakoutRoom}
+                    required={formData.isBreakRoom}
                     disabled={!formData.startTimeBreakRoom}
                   >
                     <option value="">Select End Time</option>

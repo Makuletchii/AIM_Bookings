@@ -57,6 +57,9 @@ const initialFormState = {
   isBreakRoom: false,
   remarks: '',
   bookingId: null,
+  numberOfPaxBreakRoom: '',
+  startTimeBreakRoom: '',
+  endTimeBreakRoom: '',
 };
 
 // Time options for dropdowns
@@ -305,72 +308,71 @@ const Bookings = () => {
     setIsAddModalOpen(true);
   };
   
-  const handleEditClick = (booking) => {
-    console.log('Editing booking:', booking);
-    
-    // First set basic booking form data
-    setFormData({
-      ...booking,
-      date: parseISODate(booking.date),
-      startTime: booking.startTime || convertTo24HourFormat(booking.startTime),
-      endTime: booking.endTime || convertTo24HourFormat(booking.endTime),
-      isRecurring: booking.isRecurring || booking.recurring === 'Yes',
-      recurring: booking.isRecurring ? 'Yes' : 'No',
-      recurrenceEndDate: booking.recurrenceEndDate ? parseISODate(booking.recurrenceEndDate) : '',
-      isMealRoom: booking.isMealRoom || false,
-      isBreakRoom: booking.isBreakRoom || false,
-    });
-    
-    setEditBookingId(booking.bookingId);
-    
-    // Get the building ID from the booking
-    const buildingId = booking.buildingId || '';
-    
-    if (buildingId && rooms.length > 0) {
-      // Find rooms in this building
-      const roomsInBuilding = rooms.filter(room => 
-        room.buildingId && room.buildingId.toString() === buildingId.toString()
-      );
-      
-      // Extract unique categories
-      const categoriesMap = {};
-      roomsInBuilding.forEach(room => {
-        if (room.categoryId) {
-          const categoryId = room.categoryId.toString();
-          const categoryName = room.Category?.categoryName || room.category || `Category ${categoryId}`;
-          
-          if (!categoriesMap[categoryId]) {
-            categoriesMap[categoryId] = {
-              id: categoryId,
-              name: categoryName
-            };
-          }
+const handleEditClick = async (booking) => {
+  console.log('Editing booking:', booking);
+
+  // Always fetch the latest bookings before opening modal
+  await fetchBookings();
+
+  setFormData({
+    ...booking,
+    date: parseISODate(booking.date),
+    startTime: formatTime(booking.startTime),
+    endTime: formatTime(booking.endTime), 
+    isRecurring: booking.isRecurring || booking.recurring === 'Yes',
+    recurring: booking.isRecurring ? 'Yes' : 'No',
+    recurrenceEndDate: booking.recurrenceEndDate ? parseISODate(booking.recurrenceEndDate) : '',
+    isMealRoom: booking.isMealRoom || false,
+    isBreakRoom: booking.isBreakRoom || false,
+  });
+
+  setEditBookingId(booking.bookingId);
+
+  // Get the building ID from the booking
+  const buildingId = booking.buildingId || '';
+
+  if (buildingId && rooms.length > 0) {
+    // Find rooms in this building
+    const roomsInBuilding = rooms.filter(room => 
+      room.buildingId && room.buildingId.toString() === buildingId.toString()
+    );
+
+    // Extract unique categories
+    const categoriesMap = {};
+    roomsInBuilding.forEach(room => {
+      if (room.categoryId) {
+        const categoryId = room.categoryId.toString();
+        const categoryName = room.Category?.categoryName || room.category || `Category ${categoryId}`;
+        if (!categoriesMap[categoryId]) {
+          categoriesMap[categoryId] = {
+            id: categoryId,
+            name: categoryName
+          };
         }
-      });
-      
-      const categoriesList = Object.values(categoriesMap);
-      console.log("Setting categories for building:", categoriesList);
-      setCategories(categoriesList);
-      
-      // Get category ID from the booking
-      const categoryId = booking.categoryId || '';
-      
-      if (categoryId) {
-        // Find rooms in this building AND category
-        const filteredRooms = rooms.filter(room => 
-          room.buildingId && 
-          room.buildingId.toString() === buildingId.toString() &&
-          room.categoryId && 
-          room.categoryId.toString() === categoryId.toString()
-        );
-        
-        console.log("Setting available rooms:", filteredRooms);
-        setAvailableRooms(filteredRooms);
       }
+    });
+
+    const categoriesList = Object.values(categoriesMap);
+    setCategories(categoriesList);
+
+    // Get category ID from the booking
+    const categoryId = booking.categoryId || '';
+
+    if (categoryId) {
+      // Find rooms in this building AND category
+      const filteredRooms = rooms.filter(room => 
+        room.buildingId && 
+        room.buildingId.toString() === buildingId.toString() &&
+        room.categoryId && 
+        room.categoryId.toString() === categoryId.toString()
+      );
+      setAvailableRooms(filteredRooms);
     }
-    
-    setIsEditModalOpen(true);
-  };
+  }
+
+  setIsEditModalOpen(true);
+};
+
     
 // Proper building change handler
 const handleBuildingChange = (e) => {
@@ -551,6 +553,42 @@ const handleRoomChange = (e) => {
     }
   };
 
+    const formatTime = (timeString) => {
+    if (!timeString) return '';
+    
+    // If AM/PM already, return as-is
+    if (/am|pm/i.test(timeString)) return timeString;
+
+    // If it's ISO string with T, extract the time part and convert to AM/PM
+    if (timeString.includes('T')) {
+      // Parse as UTC so time doesn't get offset
+      const date = new Date(timeString);
+      if (!isNaN(date)) {
+        let hour = date.getUTCHours();
+        let minute = date.getUTCMinutes();
+        let suffix = 'AM';
+        if (hour === 0) { hour = 12; }
+        else if (hour === 12) { suffix = 'PM'; }
+        else if (hour > 12) { hour -= 12; suffix = 'PM'; }
+        return `${hour}:${minute.toString().padStart(2, '0')} ${suffix}`;
+      }
+    }
+
+    // If it's "HH:mm:ss" or "HH:mm"
+    const match = timeString.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+    if (match) {
+      let [h, m] = [parseInt(match[1]), match[2]];
+      let suffix = 'AM';
+      if (h === 0) { h = 12; }
+      else if (h === 12) { suffix = 'PM'; }
+      else if (h > 12) { h -= 12; suffix = 'PM'; }
+      return `${h}:${m} ${suffix}`;
+    }
+
+    // Fallback
+    return timeString;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitLoading(true);
@@ -630,6 +668,9 @@ const handleRoomChange = (e) => {
         isBreakRoom: Boolean(formData.isBreakRoom),
         bookingCapacity: Number(formData.bookingCapacity) || 1,
         status: (formData.status || 'pending').toLowerCase(),
+        numberOfPaxBreakRoom: formData.numberOfPaxBreakRoom || null,
+        startTimeBreakRoom: formData.startTimeBreakRoom || null,
+        endTimeBreakRoom: formData.endTimeBreakRoom || null,
       };
 
       // Only add bookingId for edit
@@ -764,97 +805,75 @@ const getAvailableIntervals = (bookings, businessHours = { start: "08:00", end: 
     return `${h}:${m.toString().padStart(2, "0")} ${suffix}`;
   };
 
-  const getAvailableStartTimes = () => {
-    if (!formData.roomId || !formData.date) return [];
-    const confirmed = bookings.filter(
-      b => b.roomId === formData.roomId &&
+const getAvailableStartTimes = () => {
+  if (!formData.roomId || !formData.date) return [];
+  const editingBookingId = isEditModalOpen ? editBookingId : null;
+
+  const confirmed = bookings.filter(
+    b => b.roomId === formData.roomId &&
       b.date === formData.date &&
-      b.status?.toLowerCase() === 'confirmed'
-    );
-    const intervals = getAvailableIntervals(confirmed);
-    const todayStr = new Date().toISOString().split('T')[0];
-    const isToday = formData.date === todayStr;
-    const now = new Date();
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
-    let options = [];
-    intervals.forEach(({ start, end }) => {
-      for (let t = start; t + 30 <= end; t += 30) {
-        if (!isToday || t > currentMinutes) {
-          options.push(minutesToTime(t));
-        }
+      b.status?.toLowerCase() === 'confirmed' &&
+      (!editingBookingId || b.bookingId !== editingBookingId)
+  );
+  const intervals = getAvailableIntervals(confirmed);
+  const todayStr = new Date().toISOString().split('T')[0];
+  const isToday = formData.date === todayStr;
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  let options = [];
+  intervals.forEach(({ start, end }) => {
+    for (let t = start; t + 30 <= end; t += 30) {
+      if (!isToday || t > currentMinutes) {
+        options.push(minutesToTime(t));
       }
-    });
+    }
+  });
 
-      console.log(
-        '---- getAvailableStartTimes ----',
-        '\nSelected Room:', formData.roomId,
-        '\nSelected Date:', formData.date,
-        '\nConfirmed bookings:', confirmed,
-        '\nCalculated intervals:', intervals,
-        '\nIs Today?', isToday,
-        '\nCurrent Minutes:', currentMinutes,
-        '\nOptions:', options
-      );
-    return options;
-  };
+  // Always add the current value if editing and not present, using formatTime
+  if (
+    editingBookingId &&
+    formData.startTime &&
+    !options.includes(formatTime(formData.startTime))
+  ) {
+    options.push(formatTime(formData.startTime));
+    options.sort((a, b) => timeToMinutes(a) - timeToMinutes(b));
+  }
+  return options;
+};
 
-  const getAvailableEndTimes = () => {
-    if (!formData.startTime || !formData.roomId || !formData.date) return [];
-    // Only show for confirmed bookings, this room, this date:
-    const confirmed = bookings.filter(
-      b => b.roomId === formData.roomId &&
+const getAvailableEndTimes = () => {
+  if (!formData.startTime || !formData.roomId || !formData.date) return [];
+  const editingBookingId = isEditModalOpen ? editBookingId : null;
+
+  const confirmed = bookings.filter(
+    b => b.roomId === formData.roomId &&
       b.date === formData.date &&
-      b.status?.toLowerCase() === 'confirmed'
-    );
-    const intervals = getAvailableIntervals(confirmed);
-    const startMinutes = timeToMinutes(formData.startTime);
+      b.status?.toLowerCase() === 'confirmed' &&
+      (!editingBookingId || b.bookingId !== editingBookingId)
+  );
+  const intervals = getAvailableIntervals(confirmed);
+  const startMinutes = timeToMinutes(formatTime(formData.startTime));
 
-    const interval = intervals.find(
-      ({ start, end }) => start <= startMinutes && startMinutes < end
-    );
-    if (!interval) return [];
-    let times = [];
+  const interval = intervals.find(
+    ({ start, end }) => start <= startMinutes && startMinutes < end
+  );
+  let times = [];
+  if (interval) {
     for (let t = startMinutes + 30; t <= interval.end; t += 30) {
       times.push(minutesToTime(t));
     }
-    return times;
-  };
-
-  const formatTime = (timeString) => {
-    if (!timeString) return '';
-    
-    // If AM/PM already, return as-is
-    if (/am|pm/i.test(timeString)) return timeString;
-
-    // If it's ISO string with T, extract the time part and convert to AM/PM
-    if (timeString.includes('T')) {
-      // Parse as UTC so time doesn't get offset
-      const date = new Date(timeString);
-      if (!isNaN(date)) {
-        let hour = date.getUTCHours();
-        let minute = date.getUTCMinutes();
-        let suffix = 'AM';
-        if (hour === 0) { hour = 12; }
-        else if (hour === 12) { suffix = 'PM'; }
-        else if (hour > 12) { hour -= 12; suffix = 'PM'; }
-        return `${hour}:${minute.toString().padStart(2, '0')} ${suffix}`;
-      }
-    }
-
-    // If it's "HH:mm:ss" or "HH:mm"
-    const match = timeString.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
-    if (match) {
-      let [h, m] = [parseInt(match[1]), match[2]];
-      let suffix = 'AM';
-      if (h === 0) { h = 12; }
-      else if (h === 12) { suffix = 'PM'; }
-      else if (h > 12) { h -= 12; suffix = 'PM'; }
-      return `${h}:${m} ${suffix}`;
-    }
-
-    // Fallback
-    return timeString;
-  };
+  }
+  // Always add the current value if editing and not present, using formatTime
+  if (
+    editingBookingId &&
+    formData.endTime &&
+    !times.includes(formatTime(formData.endTime))
+  ) {
+    times.push(formatTime(formData.endTime));
+    times.sort((a, b) => timeToMinutes(a) - timeToMinutes(b));
+  }
+  return times;
+};
    
 const BookingForm = React.memo(({ isEdit }) => (
   <form onSubmit={handleSubmit} className="space-y-6">
@@ -1063,8 +1082,130 @@ const BookingForm = React.memo(({ isEdit }) => (
         </div>
 
     {/* Divider */}
-    <div className="border-t pt-4 mt-2">
-      <div className="flex flex-wrap gap-6">
+      <div className="border-t pt-4 mt-2 flex flex-col items-center">
+        <div className="mb-3">
+          <label className="block text-sm font-medium text-gray-700">Other Request</label>
+        </div>
+        <div className="flex flex-row flex-wrap justify-center gap-12">
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="isMealRoom"
+              name="isMealRoom"
+              checked={formData.isMealRoom}
+              onChange={(e) => setFormData((prev) => ({ ...prev, isMealRoom: e.target.checked }))}
+              className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            />
+            <label htmlFor="isMealRoom" className="ml-2 text-sm text-gray-700">
+              Meal Room
+            </label>
+          </div>
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="isBreakRoom"
+              name="isBreakRoom"
+              checked={formData.isBreakRoom}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  isBreakRoom: e.target.checked,
+                  // Reset break room details when unchecked
+                  ...(e.target.checked
+                    ? {}
+                    : {
+                        numberOfPaxBreakRoom: '',
+                        startTimeBreakRoom: '',
+                        endTimeBreakRoom: '',
+                      }),
+                }))
+              }
+              className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            />
+            <label htmlFor="isBreakRoom" className="ml-2 text-sm text-gray-700">
+              Break Room
+            </label>
+          </div>
+        </div>
+      </div>
+
+
+      {formData.isBreakRoom && (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 mt-4 w-full">
+        {/* Number of Pax for Break Room */}
+        <div className="md:col-span-2">
+          <label className="block text-gray-700 font-medium mb-2">
+            Number of Pax (Break Room) <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="number"
+            name="numberOfPaxBreakRoom"
+            value={formData.numberOfPaxBreakRoom || ''}
+            onChange={e => setFormData(prev => ({
+              ...prev,
+              numberOfPaxBreakRoom: e.target.value,
+            }))}
+            min={1}
+            className="w-full p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Enter number of participants for break room"
+            required={formData.isBreakRoom}
+          />
+        </div>
+        {/* Start Time for Break Room */}
+        <div>
+          <label className="block text-gray-700 font-medium mb-2">
+            Break Room Start Time <span className="text-red-500">*</span>
+          </label>
+          <select
+            name="startTimeBreakRoom"
+            value={formData.startTimeBreakRoom || ''}
+            onChange={e => setFormData(prev => ({
+              ...prev,
+              startTimeBreakRoom: e.target.value,
+              // Reset end time if start changes
+              endTimeBreakRoom: '',
+            }))}
+            className="w-full p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            required={formData.isBreakRoom}
+          >
+            <option value="">Select Start Time</option>
+            {TIME_OPTIONS.map((time) => (
+              <option key={time} value={time}>{time}</option>
+            ))}
+          </select>
+        </div>
+        {/* End Time for Break Room */}
+        <div>
+          <label className="block text-gray-700 font-medium mb-2">
+            Break Room End Time <span className="text-red-500">*</span>
+          </label>
+          <select
+            name="endTimeBreakRoom"
+            value={formData.endTimeBreakRoom || ''}
+            onChange={e => setFormData(prev => ({
+              ...prev,
+              endTimeBreakRoom: e.target.value,
+            }))}
+            className="w-full p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            required={formData.isBreakRoom}
+            disabled={!formData.startTimeBreakRoom}
+          >
+            <option value="">Select End Time</option>
+            {TIME_OPTIONS
+              .filter(
+                (time) =>
+                  !formData.startTimeBreakRoom ||
+                  TIME_OPTIONS.indexOf(time) > TIME_OPTIONS.indexOf(formData.startTimeBreakRoom)
+              )
+              .map((time) => (
+                <option key={time} value={time}>{time}</option>
+              ))}
+          </select>
+        </div>
+      </div>
+    )}
+
+      <div className="pt-4 mt-2 flex flex-col items-center">
         <div className="flex items-center">
           <input
             type="checkbox"
@@ -1084,34 +1225,9 @@ const BookingForm = React.memo(({ isEdit }) => (
           <label htmlFor="isRecurring" className="ml-2 text-sm text-gray-700">
             Recurring Booking
           </label>
-        </div>
-        <div className="flex items-center">
-          <input
-            type="checkbox"
-            id="isMealRoom"
-            name="isMealRoom"
-            checked={formData.isMealRoom}
-            onChange={(e) => setFormData((prev) => ({ ...prev, isMealRoom: e.target.checked }))}
-            className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-          />
-          <label htmlFor="isMealRoom" className="ml-2 text-sm text-gray-700">
-            Meal Room
-          </label>
-        </div>
-        <div className="flex items-center">
-          <input
-            type="checkbox"
-            id="isBreakRoom"
-            name="isBreakRoom"
-            checked={formData.isBreakRoom}
-            onChange={(e) => setFormData((prev) => ({ ...prev, isBreakRoom: e.target.checked }))}
-            className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-          />
-          <label htmlFor="isBreakRoom" className="ml-2 text-sm text-gray-700">
-            Break Room
-          </label>
-        </div>
+        </div>  
       </div>
+
       {/* Recurring fields */}
       {formData.isRecurring && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
@@ -1145,7 +1261,6 @@ const BookingForm = React.memo(({ isEdit }) => (
           </div>
         </div>
       )}
-    </div>
 
     {/* Notes and Remarks */}
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1279,6 +1394,14 @@ const Modal = React.memo(({ isOpen, title, children, onClose }) => {
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-2xl font-bold text-gray-800">Bookings</h2>
           <div className="flex gap-2">
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-gray-200 text-blue-700 rounded-lg border border-blue-200 hover:bg-blue-100 flex items-center gap-1"
+              title="Refresh Page"
+            >
+              <span role="img" aria-label="refresh">🔄</span>
+              Refresh
+            </button>
             <button
               onClick={handleAddNewClick}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
