@@ -13,6 +13,7 @@ const Users = () => {
     lastName: '',
     email: '',
     department: '',
+    oldPassword: '',
     password: '',
     confirmPassword: '',
     isActive: true,
@@ -20,7 +21,7 @@ const Users = () => {
   });
   const [errors, setErrors] = useState({});
   const [searchTerm, setSearchTerm] = useState('');
-
+  const [showPasswordFields, setShowPasswordFields] = useState(false);
   const departments = ['ASITE', 'WSGSB', 'SZGSDM', 'SEELL', 'Other Units', 'External'];
 
   // Check if user is admin on component mount
@@ -126,8 +127,10 @@ const Users = () => {
       role: user.role.toLowerCase(),
       password: '',
       confirmPassword: '',
+      oldPassword: '',       // Add this
     });
     setErrors({});
+    setShowPasswordFields(false); // <-- Add this
     setShowEditModal(true);
   };
 
@@ -186,6 +189,14 @@ const Users = () => {
 
     if (!validateForm()) {
       return;
+    }
+
+    if (showEditModal && showPasswordFields) {
+      if (!formData.oldPassword) newErrors.oldPassword = 'Old password is required';
+      if (!formData.password) newErrors.password = 'New password is required';
+      if (formData.password !== formData.confirmPassword) {
+        newErrors.confirmPassword = 'Passwords do not match';
+      }
     }
 
     try {
@@ -614,6 +625,61 @@ const Users = () => {
                 </select>
                 {errors.role && <p className="text-red-500 text-sm mt-1">{errors.role}</p>}
               </div>
+
+              <div className="mb-4 justify-center">
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={showPasswordFields}
+                    onChange={() => setShowPasswordFields(!showPasswordFields)}
+                    className="mr-2"
+                  />
+                  <span>Forgot Password</span>
+                </label>
+              </div>
+
+              {showPasswordFields && (
+                <div className="mb-4 border rounded p-3">
+                  <label className="block mb-1 font-medium">Current Password</label>
+                  <input
+                    type="password"
+                    name="oldPassword"
+                    value={formData.oldPassword}
+                    onChange={handleChange}
+                    className="w-full p-2 border rounded mb-2"
+                    autoComplete="current-password"
+                  />
+                  {errors.oldPassword && (
+                    <p className="text-red-500 text-sm mt-1">{errors.oldPassword}</p>
+                  )}
+
+                  <label className="block mb-1 font-medium">New Password</label>
+                  <input
+                    type="password"
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    className="w-full p-2 border rounded mb-2"
+                    autoComplete="new-password"
+                  />
+                  {errors.password && (
+                    <p className="text-red-500 text-sm mt-1">{errors.password}</p>
+                  )}
+
+                  <label className="block mb-1 font-medium">Confirm New Password</label>
+                  <input
+                    type="password"
+                    name="confirmPassword"
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    className="w-full p-2 border rounded"
+                    autoComplete="new-password"
+                  />
+                  {errors.confirmPassword && (
+                    <p className="text-red-500 text-sm mt-1">{errors.confirmPassword}</p>
+                  )}
+                </div>
+              )}
 
               <div className="flex justify-end">
                 <button
